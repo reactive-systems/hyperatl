@@ -1,0 +1,368 @@
+options {
+	LOOKAHEAD = 2;
+//	DEBUG_PARSER = true;
+}
+
+PARSER_BEGIN(PLParserCC)
+package hyperatl.pl.parser.generated;
+
+import java.io.*;
+import hyperatl.pl.*;
+import java.util.*;
+
+/**
+ * The generated parser.
+ */
+public class PLParserCC
+{
+	private static PLParserCC theParser = null;
+
+	private static void initializeParser(InputStream str)
+	{
+		if (theParser == null) {
+			theParser = new PLParserCC(str);
+		} else {
+			ReInit(str);
+		}
+	}
+
+	public static Program parsePL(InputStream str) throws ParseException
+	{
+		initializeParser(str);
+		return Program();
+	}
+}
+
+PARSER_END(PLParserCC)
+
+SPECIAL_TOKEN :
+{
+	<WHITESPACE: (" "|"\t"|"\n"|"\r")>
+}
+
+TOKEN :
+{
+	< DOMAIN:		"==DOMAIN==">
+|	< BEGIN: 		"==BEGIN==">
+| 	< END: 			"==END==">
+|	< IF:			"IF">
+|	< THEN: 		"THEN">
+|	< ELSE: 		"ELSE">
+|	< WHILE: 		"WHILE">
+|	< READH: 		"READH">
+|	< READL: 		"READL">
+|	< OUT: 			"OUT">
+|	< SEQ: 			";">
+|	< COMMA: 		",">
+|	< CONCAT: 		"@">
+| 	< NDET:			"IF*">
+|	< ASSIGN:		":=">
+|	< READSYM:		"<-">
+|	< NOT:			"!" >
+|	< AND:			"&" >
+|	< OR:			"|" >
+|	< LPARENTH:		"(" >
+|	< RPARENTH:		")" >
+|	< LBRACKET:		"[" >
+|	< RBRACKET:		"]" >
+|	< LCURLY:		"{" >
+|	< RCURLY:		"}" >
+|	< TRUE:			"TRUE" >
+|	< FALSE:		"FALSE" >
+|	< REG_INT:			(["1"-"9"](["0"-"9"])*)|("0") >
+|	< REG_STRING:		"\"" (("\\" ~[]) | ~["\\","\""] )* "\"" >
+|	< REG_IDENT:		["_","a"-"z","A"-"Z"](["_","-","a"-"z","A"-"Z","0"-"9"])* >
+|	< REG_HEADERNAME:	["_","a"-"z","A"-"Z"](["_","-","a"-"z","A"-"Z","0"-"9"])*":" >
+|	< REG_ANAME:		"@"(["_","a"-"z","A"-"Z","0"-"9"])+ >
+|	< LEXICAL_ERROR: ~[] >
+}
+
+Map<String, Integer> Header():
+{
+	Map<String, Integer> m = new HashMap<>();
+	String var = null;
+	Integer d = null;
+}
+{
+	<DOMAIN>
+	(
+		var = Identifier()
+		d = Integer()
+		{
+			m.put(var, d);
+		}
+
+	)*
+	{
+		return m;
+	}
+}
+
+Program Program():
+{
+	Map<String, Integer> m = new HashMap<>();
+	Statement statement = null;
+}
+{	
+	m = Header()
+	<BEGIN>
+	statement = PStatement()
+	<END>
+	{
+		return new Program(statement, m);
+	}
+}
+
+Statement PStatement():
+{
+	Statement left, right = null;
+}
+{
+	(
+		left = While()
+	|	left = If()
+	|	left = IfN()
+	| 	left = Read()
+	|	left = Out()
+	| 	left = Assign()
+	)
+	( 
+		<SEQ>
+		right = PStatement()
+		{
+			left = new StatementSeq(left, right);
+		}
+	  )?
+	  {
+		  return left;
+	  }
+
+}
+
+Statement While():
+{
+	Expression expr = null;
+	Statement body = null;
+}
+{
+	<WHILE>
+	<LPARENTH>
+	expr = Expr()
+	<RPARENTH>
+	<LCURLY>
+	body = PStatement()
+	<RCURLY>
+	{
+		return new StatementWhile(expr, body);
+	}
+}
+
+Statement If():
+{
+	Expression expr = null;
+	Statement left = null;
+	Statement right = null;
+}
+{
+	<IF>
+	<LPARENTH>
+	expr = Expr()
+	<RPARENTH>
+	<THEN>
+	<LCURLY>
+	left = PStatement()
+	<RCURLY>
+	<ELSE>
+	<LCURLY>
+	right = PStatement()
+	<RCURLY>
+	{
+		return new StatementIf(expr, left, right);
+	}
+}
+
+Statement IfN():
+{
+	Statement left = null;
+	Statement right = null;
+}
+{
+	<NDET>
+	<THEN>
+	<LCURLY>
+	left = PStatement()
+	<RCURLY>
+	<ELSE>
+	<LCURLY>
+	right = PStatement()
+	<RCURLY>
+	{
+		return new StatementIfN(left, right);
+	}
+}
+
+Statement Read():
+{
+	String var = null;
+	Integer cId = null;
+}
+{
+	var = Identifier()
+	<READSYM>
+	((
+		<READH>
+		<LPARENTH>
+		cId = Integer()
+		<RPARENTH>
+		{
+			return new StatementRead(var, cId, true);
+		}
+	) 
+	|
+	(
+		<READL>
+		<LPARENTH>
+		cId = Integer()
+		<RPARENTH>
+		{
+			return new StatementRead(var, cId, false);
+		}
+	))
+}
+
+Statement Out():
+{
+	Expression expr = null;
+	Integer cId = null;
+}
+{
+	<OUT>
+	<LPARENTH>
+	expr = Expr()
+	<COMMA>
+	cId = Integer()
+	<RPARENTH>
+	{
+		return new StatementOut(expr, cId);
+	}
+}
+
+Statement Assign():
+{
+	String var = null;
+	Expression expr = null;
+}
+{
+	var = Identifier()
+	<ASSIGN>
+	expr = Expr()
+	{
+		return new StatementAssign(var, expr);
+	}
+}
+
+Expression Expr() :
+{
+	Expression expr;
+}
+{
+	expr = ExprOr()
+	{return expr;}
+}
+
+Expression ExprOr() :
+{
+	Expression left, right;
+}
+{
+	left = ExprAnd()
+	(<OR> right = ExprAnd()  { left = left.or(right); } )*
+	{
+	  return left;
+	}
+}
+
+Expression ExprAnd() :
+{
+	Expression left, right;
+}
+{
+	left = ExprConcat()
+	(<AND> right = ExprConcat()  { left = left.and(right); } )*
+	{
+	  return left;
+	}
+}
+
+Expression ExprConcat():
+{
+	Expression left, right;
+}
+{
+	left = ExprProj()
+	(<CONCAT> right = ExprProj()  { left = left.concat(right); } )*
+	{
+	  return left;
+	}
+}
+
+Expression ExprProj():
+{
+	Expression left;
+	Integer index = null;
+}
+{
+	left = ExprAtom()
+	(
+		<LBRACKET>
+		index = Integer()
+		<RBRACKET>
+		{ left = left.proj(index); } 
+	)?
+	{
+	  return left;
+	}
+}
+
+Expression ExprAtom() :
+{
+	Expression expression = null;
+	String var;
+}
+{
+	(
+	   (<LPARENTH> expression = Expr() <RPARENTH>)
+	 | (<TRUE>  { expression = new Expression(true);  } )
+	 | (<FALSE> { expression = new Expression(false); } )
+	 | (<NOT> expression = ExprAtom() { expression = expression.not(); })
+	 | (var = Identifier() { expression = new Expression(var); })
+	)
+	{return expression;}
+}
+
+String Identifier() :
+{
+}
+{
+	<REG_IDENT> { return getToken(0).image; }
+}
+
+int Integer() :
+{
+}
+{
+	<REG_INT> { return Integer.parseInt(getToken(0).image); }
+}
+
+String QuotedString() :
+{
+	String s;
+}
+{
+	<REG_STRING> { 
+		s = getToken(0).image;
+		// remove outer quotes "
+		s = s.substring(1, s.length()-1);
+		return s;
+	}
+}

@@ -1,2 +1,5 @@
 build/*
 jar/*
+
+
+*.DS_Store

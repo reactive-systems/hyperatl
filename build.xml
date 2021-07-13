@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<project name="hyperatlmc" basedir="." default="build">
+    <property name="src.dir" value="src"/>
+    <property name="build.dir" value="build/classes"/>
+    <property name="jar.dir" value="jar"/>
+
+    <path id="master-classpath">
+        <pathelement path="${build.dir}"/>
+    </path>
+
+    <target name="build" description="Compile source tree java files">
+        <mkdir dir="${build.dir}"/>
+        <javac destdir="${build.dir}" includeantruntime="false" source="16" target="16">
+            <src path="${src.dir}"/>
+            <classpath refid="master-classpath"/>
+        </javac>
+    </target>
+
+    <target name="build-jar" description="Build a JAR file">
+        <jar destfile="${jar.dir}/hyperatlmc.jar" basedir="${build.dir}">
+            <manifest>
+                <attribute name="Main-Class" value="hyperatl.Main"/>
+            </manifest>
+        </jar>
+     </target>
+
+    <target name="clean" description="Clean output directories">
+        <delete>
+            <fileset dir="${build.dir}">
+            </fileset>
+        </delete>
+    </target>
+</project>

@@ -1,0 +1,183 @@
+options {
+	LOOKAHEAD = 2;
+//	DEBUG_PARSER = true;
+}
+
+PARSER_BEGIN(FormulaParserCC)
+package hyperatl.formula.parser.generated;
+
+import java.util.*;
+import java.io.*;
+import hyperatl.formula.*;
+import hyperatl.formula.HyperATLFormula.Transformation;
+
+/**
+ * The generated parser.
+ */
+public class FormulaParserCC
+{
+	private static FormulaParserCC theParser = null;
+	private static HyperATLFormula formula = null;
+
+	private static void initializeParser(InputStream str)
+	{
+		if (theParser == null) {
+			theParser = new FormulaParserCC(str);
+		} else {
+			ReInit(str);
+		}
+	}
+
+	public static void parseFormula(InputStream str, HyperATLFormula formula) throws ParseException
+	{
+		initializeParser(str);
+		FormulaParserCC.formula = formula;
+		Formula();
+	}
+}
+
+PARSER_END(FormulaParserCC)
+
+SPECIAL_TOKEN :
+{
+	<WHITESPACE: (" "|"\t"|"\n"|"\r")>
+}
+
+
+TOKEN :
+{
+	< LPARENTH:		"(" >
+|	< RPARENTH:		")" >
+|	< LPATH:		"<<" >
+|	< RPATH:		">>" >
+|	< DOT:			"." >
+|	< COMMA:		"," >
+|	< LBRACKET:		"[" >
+|	< RBRACKET:		"]" >
+|	< LCURLY:		"{" >
+|	< RCURLY:		"}" >
+|	< STUT:			"STUT" >
+|	< SHIFT:		"SHIFT" >
+|	< REG_INT:			(["1"-"9"](["0"-"9"])*)|("0") >
+|	< REG_STRING:		"\"" (("\\" ~[]) | ~["\\","\""] )* "\"" >
+|	< REG_IDENT:		["_","a"-"z","A"-"Z"](["_","-","a"-"z","A"-"Z","0"-"9"])* >
+|	< LEXICAL_ERROR: ~[] >
+}
+
+void Formula():
+{
+}
+{
+	QPrefix()
+	LTL()
+}
+
+void LTL():
+{
+	String ltl = null;
+}
+{
+	ltl = QuotedString()
+	{
+		formula.setLTLformula(ltl);
+	}
+}
+
+void QPrefix():
+{
+}
+{
+	<LBRACKET>
+	(PathQ())*
+	<RBRACKET>
+
+
+}
+
+void PathQ():
+{
+	String varName = null;
+	Set<Integer> agentSet = null;
+	Transformation trans;
+}
+{
+	<LPATH>
+	agentSet = agentSet()
+	<RPATH>
+
+	
+	varName = Identifier()
+	trans = Trans()
+	<DOT>
+	{
+		formula.addQuantifier(varName, agentSet, trans);
+	}
+
+}
+
+Transformation Trans():
+{
+
+}
+{
+	((<LPARENTH><STUT><RPARENTH> {return Transformation.Stutter;})
+	|  (<LPARENTH><SHIFT><RPARENTH> {return Transformation.Shift;}))?
+	{
+		return Transformation.None;
+	}
+}
+
+Set<Integer> agentSet():
+{
+	Set<Integer> set = new HashSet<>();
+	Integer id;
+}
+{
+	<LCURLY>
+	(
+		id = Integer()
+		{
+			set.add(id);
+		}
+	)?
+	(
+		<COMMA>
+		id = Integer()
+		{
+			set.add(id);
+		}
+	)*
+
+	<RCURLY>
+
+	{
+		return set;
+	}
+}
+
+String Identifier() :
+{
+}
+{
+	<REG_IDENT> { return getToken(0).image; }
+}
+
+int Integer() :
+{
+}
+{
+	<REG_INT> { return Integer.parseInt(getToken(0).image); }
+}
+
+String QuotedString() :
+{
+	String s;
+}
+{
+	<REG_STRING> { 
+		s = getToken(0).image;
+		// remove outer quotes "
+		s = s.substring(1, s.length()-1);
+		return s;
+	}
+}
